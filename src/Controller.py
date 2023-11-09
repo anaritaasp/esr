@@ -74,10 +74,10 @@ class Controller:
             node_name = self.get_the_node_name(client_address)
             if(node_name):
                 # Responds with node's adjacents
-                
+                data = None # TODO
+                serialized_data = pickle.dumps(data)
                 # Send a response back to the client
-                response = "Hello, client! I received your message."
-                client_socket.send(response.encode('utf-8'))
+                client_socket.send(serialized_data)
 
             
             # else ignores request
