@@ -23,7 +23,7 @@ def handle_client(client_socket, client_addr):
 
 # Server starter function
 def initiate_server():
-    server_host = "0.0.0.0"  # Escuta em todas as interfaces
+    server_host = "10.0.0.10"  # Escuta em todas as interfaces
     server_port = 12346
     # creates the server socket
     # 1st parameter indicates that the underlying network is using IPv4
