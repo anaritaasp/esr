@@ -41,7 +41,7 @@ def initiate_server():
 
 # Client's starter function
 def initiate_client():
-    client_host = "localhost"
+    client_host = "10.0.1.20"
     client_port = 12346
     client = socket(AF_INET, SOCK_STREAM)
     client.connect((client_host, client_port))
