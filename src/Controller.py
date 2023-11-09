@@ -52,6 +52,15 @@ class Controller:
                 lista_vizinhos = neighbours
         return lista_vizinhos
 
+    # se um dado nodo tiver uma dada vizinhança pretendemos obter um dicionário com o match de ips da sua vizinhança associada a cada nodo
+    # ex: se a vizinhança de N2 for  ["N1","N3"] queremos ter um dicionário tipo {N1:[10.0.0.1,10.0.0.2], N3:[10.0.0.3,10.0.0.4]}
+    def get_the_vizinhanca_ips(self, none_name):
+        dict_final = {}
+        lista_vizinhos= self.get_vizinhanca(none_name)
+        for elem in lista_vizinhos:
+            list=self.get_the_ips(elem)
+            dict_final.add(elem,list)
+        return dict_final
 
     def run(self):
         
@@ -74,7 +83,7 @@ class Controller:
             node_name = self.get_the_node_name(client_address)
             if(node_name):
                 # Responds with node's adjacents
-                data = None # TODO
+                data = self.get_the_vizinhanca_ips(node_name)
                 serialized_data = pickle.dumps(data)
                 # Send a response back to the client
                 client_socket.send(serialized_data)
