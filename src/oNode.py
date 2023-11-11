@@ -1,8 +1,9 @@
 from socket import *
 import threading
 import sys
+from Controller import Controller
 
-
+controller_instance = Controller()
 # function that handles client functions
 # receives the client's socket 
 def handle_client(client_socket, client_addr):
@@ -13,11 +14,11 @@ def handle_client(client_socket, client_addr):
         # if the server received client's data, it's printed on the screen
         # the decode fucntion converts binary data into a readable string 
         received_message= clientmessage.decode()
-        print(f"Received from client: {received_message}")
+        print(f"Received from client {client_addr[0]}:{client_addr[1]}: {received_message}")
         if received_message.lower() == "exit":
             print(f"Client {client_addr[0]}:{client_addr[1]} requested to exit.")
             break
-        response = input("Send to Client: ") # the server requests for a response to the client
+        response = input(f"Send to Client {client_addr[0]}:{client_addr[1]}: ") # the server requests for a response to the client
         client_socket.send(response.encode()) # the response is encoded in bytes in order to be sent to the client
     client_socket.close() # the client's connection is closed - therefore the server closes the client's socket
 
@@ -29,34 +30,62 @@ def initiate_server():
     # 1st parameter indicates that the underlying network is using IPv4
     # 2nd parameter indicates 
     server = socket(AF_INET, SOCK_STREAM) 
-    server.bind((server_host, server_port))
-    server.listen(5)
-    print(f"Server listening in {server_host}:{server_port}")
+    try:
+        server.bind((server_host, server_port))
+        server.listen(5)
+        print(f"Server listening on {server_host}:{server_port}")
 
-    while True:
-        client_sock, client_addr = server.accept()
-        print(f"Connection accepeted from {client_addr[0]}:{client_addr[1]}")
-        client_handler = threading.Thread(target=handle_client, args=(client_sock,client_addr))
-        client_handler.start()
+        while True:
+            client_sock, client_addr = server.accept()
+            print(f"Connection accepted from {client_addr[0]}:{client_addr[1]}")
+            client_handler = threading.Thread(target=handle_client, args=(client_sock, client_addr))
+            client_handler.start()
+
+    except Exception as e:
+        print(f"Error: {e}")
+        server.close()
 
 # Client's starter function
 def initiate_client():
-    client_host = "10.0.1.20"
-    client_port = 1234
+    server_host = "10.0.0.10"
+    server_port = 1234
     client = socket(AF_INET, SOCK_STREAM)
-    client.connect((client_host, client_port))
 
-    while True:
-        message = input("Send to server: ")
-        client.send(message.encode())
-        response = client.recv(1024)
-        print(f"Received from the server: {response.decode()}")
+    try:
+        print(f"Connecting to server at {server_host}:{server_port}")
+        client.connect((server_host, server_port))
+        print("Connection successful!")
+
+        while True:
+            message = input("Send to server: ")
+            client.send(message.encode())
+            print("Message sent to server.")
+
+            response = client.recv(1024)
+            if not response:
+                print("Server closed the connection.")
+                break
+
+            print(f"Received from the server: {response.decode()}")
+
+    except ConnectionRefusedError:
+        print(f"Error: Connection to {server_host}:{server_port} refused. Is the server running?")
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        client.close()
+    
+
 
 if __name__ == "__main__":
    if len(sys.argv) == 2:
         if sys.argv[1] == "servidor":
             initiate_server()
+        elif sys.argv[1] in controller_instance.check_if_its_server():
+            initiate_server()
         elif sys.argv[1] == "cliente":
+            initiate_client()
+        elif sys.argv[1] in controller_instance.return_node_name():
             initiate_client()
         else:
             print("Erro nos argumentos")

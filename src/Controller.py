@@ -5,20 +5,30 @@ import pickle
 
 SERVER_HOST = '0.0.0.0'  # Listen on all available network interfaces
 SERVER_PORT = 60000  # Choose a port number
-
+STREAM={'movie.Mjpeg':61000}
 #temos de definir porta para bootstrap
 #temos de definir portas para streaming
 
 class Controller:
     
-    def __init__(self, default_ip_address):
+    def __init__(self):
         # abrimos o ficheiro JSON
         f= open('neighbours.json')
         # devolvemos os objetos do JSON como um dicionário
         neighbours = json.load(f)
         self.nodos = neighbours.get('Nodos') #dicionário com os nodos
         self.vizinhos = neighbours.get('Adjacentes') #dicionário com os vizinhos
-        self.address = default_ip_address
+       # self.address = default_ip_address
+    
+
+    def return_node_name(self):
+        list=[]
+        for node, addresses in self.nodos.items():
+            list.append(node)
+        return list
+
+    def check_if_its_server(self):
+        return [elem for elem in self.return_node_name() if elem.startswith('s') or elem.startswith('S')]
 
     #dado um IP quero saber o nome do seu nodo. 
     # ex: "10.2.3.1" representa o nodo N2
@@ -62,37 +72,45 @@ class Controller:
             dict_final.add(elem,list)
         return dict_final
 
-    def run(self):
+    def handle_request(self, client_socket, client_address):
+        node_name = None
+
+        # Receive and process data from the client
+        data = client_socket.recv(1024).decode('utf-8')
+        print(f"Received data: {data}")
+
+        # Verifies if request's ip is valid in the overlay network
+        node_name = self.get_the_node_name(client_address)
+        if(node_name):
+            # Responds with node's adjacents
+            data = self.get_the_vizinhanca_ips(node_name)
+            serialized_data = pickle.dumps(data)
+            # Send a response back to the client
+            client_socket.send(serialized_data)
         
+        # else ignores request
+        # Close the client socket
+        client_socket.close()
+
+
+    def run(self):
+        print ("Starting the Bootstrap")
         # Criamos o socket
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((SERVER_HOST, SERVER_PORT))
         server_socket.listen(5) # 5 clients in queue
         # Espera pela conexão e pedidos dos servidores autorizados
         while(True):
-            node_name = None
-             # Aceitamos conexões 
-            client_socket, client_address = server_socket.accept()
-            print(f"Accepted connection from {client_address}")
+            client_sock, client_addr = server_socket.accept()
+            print(f"Connection accepted from {client_addr[0]}:{client_addr[1]}")
+            client_handler = Thread(target=self.handle_request, args=(client_sock, client_addr))
+            client_handler.start()
 
-            # Recebemos and process data from the client
-            data = client_socket.recv(1024).decode('utf-8')
-            print(f"Received data: {data}")
 
-            # Verifies if request's ip is valid in the overlay network
-            node_name = self.get_the_node_name(client_address)
-            if(node_name):
-                # Responds with node's adjacents
-                data = self.get_the_vizinhanca_ips(node_name)
-                serialized_data = pickle.dumps(data)
-                # Send a response back to the client
-                client_socket.send(serialized_data)
 
             
-            # else ignores request
-            # Close the client socket
-            client_socket.close()
             
 
-
+if __name__ == '__main__':
+    Controller().run()
         
