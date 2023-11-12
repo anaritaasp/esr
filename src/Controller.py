@@ -2,6 +2,8 @@ import json
 from threading import Thread
 import socket
 import pickle
+import subprocess
+import time
 
 SERVER_HOST = '0.0.0.0'  # Listen on all available network interfaces
 SERVER_PORT = 60000  # Choose a port number
@@ -18,18 +20,24 @@ class Controller:
         neighbours = json.load(f)
         self.nodos = neighbours.get('Nodos') #dicionário com os nodos
         self.vizinhos = neighbours.get('Adjacentes') #dicionário com os vizinhos
+        self.latency={}
        # self.address = default_ip_address
     
-
+    #retorna os nomes de todos os nodos. ex:[N1,N2,N3]
     def return_node_name(self):
         list=[]
         for node, addresses in self.nodos.items():
             list.append(node)
         return list
 
+    #retorna os nodos que são servidores (começam com a letra s)
     def check_if_its_server(self):
         return [elem for elem in self.return_node_name() if elem.startswith('s') or elem.startswith('S')]
 
+    #retorna os ips associados ao RP
+    def get_the_RP(self):
+         return self.nodos.get("RP", None)
+        
     #dado um IP quero saber o nome do seu nodo. 
     # ex: "10.2.3.1" representa o nodo N2
     # retorna string
@@ -75,23 +83,69 @@ class Controller:
     def handle_request(self, client_socket, client_address):
         node_name = None
 
-        # Receive and process data from the client
+        # Recebe e processa dados do cliente
         data = client_socket.recv(1024).decode('utf-8')
         print(f"Received data: {data}")
 
-        # Verifies if request's ip is valid in the overlay network
+        # Verifica se o request's ip é valido na overlay network
         node_name = self.get_the_node_name(client_address)
         if(node_name):
-            # Responds with node's adjacents
+            # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
             serialized_data = pickle.dumps(data)
-            # Send a response back to the client
+            # Envia a resposta de volta ao cliente
             client_socket.send(serialized_data)
         
-        # else ignores request
-        # Close the client socket
+        # caso ignore o request
+        # fecha o client socket
         client_socket.close()
 
+
+    def measure_latency(self, server_ip):
+        try:
+            # Corre o ping command e captura o output
+            # corre o echo request do ICMP para enviar
+            # o 4 significa que o ping command vai mandar 4 packets para o destino especificado
+            # desta forma conseguimos obter resultados de rtt mais fiávies
+            result = subprocess.run(['ping', '-c', '4', server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # Verifica se o ping foi bem sucedido
+            if result.returncode == 0:
+                # Extrai e faz parse do round-trip time do output
+                lines = result.stdout.split('\n')
+                if len(lines) >= 3:
+                    rtt_line = lines[2].split('=')
+                    if len(rtt_line) >= 2:
+                        rtt_str = rtt_line[1].split()[0]
+                        rtt_ms = float(rtt_str)
+                        return rtt_ms
+        except Exception as e:
+            print(f"Error measuring latency: {e}")
+
+        # Return None if there was an error or if the ping was unsuccessful
+        return None
+
+    def periodic_latency_checks(self):
+        while True:
+            rp_ip = self.get_the_RP()
+            if rp_ip:
+                for server_name in self.check_if_its_server():
+                    server_ip = self.get_the_ips(server_name)[0]  # Assuming one IP per server
+                    latency = self.measure_latency(server_ip)
+
+                    threshold = 50  # Example threshold in milliseconds
+
+                    if latency is not None and latency > threshold:
+                        print(f"Latency to {server_name} exceeds threshold. Re-establishing connection...")
+                        # Implement your re-establishment logic here
+
+                # Print the latency data dictionary
+                print("Latency data:", self.latency)
+
+                time.sleep(60)  # Example: Check every 60 seconds
+            else:
+                print("RP not found. Retrying...")
+                time.sleep(10)
 
     def run(self):
         print ("Starting the Bootstrap")
@@ -105,10 +159,6 @@ class Controller:
             print(f"Connection accepted from {client_addr[0]}:{client_addr[1]}")
             client_handler = Thread(target=self.handle_request, args=(client_sock, client_addr))
             client_handler.start()
-
-
-
-            
             
 
 if __name__ == '__main__':
