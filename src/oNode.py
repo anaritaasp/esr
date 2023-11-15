@@ -1,9 +1,29 @@
+import json
 from socket import *
 import threading
 import sys
 from Controller import Controller
 
+    
 controller_instance = Controller()
+
+class Node:
+    def __init__(self, ip_address):
+        self.ip_address = ip_address
+        self.adjacent_nodes = []
+
+    def load_from_bootstrap(self):
+        node_name = controller_instance.get_the_node_name(self.ip_address)
+        self.adjacent_nodes = controller_instance.get_the_vizinhanca_ips(node_name)
+
+
+    def get_ip_address(self):
+        return self.ip_address
+
+    def get_adjacent_nodes(self):
+        return self.adjacent_nodes
+
+
 # function that handles client functions
 # receives the client's socket 
 def handle_client(client_socket, client_addr):
@@ -13,7 +33,7 @@ def handle_client(client_socket, client_addr):
             break
         # if the server received client's data, it's printed on the screen
         # the decode fucntion converts binary data into a readable string 
-        received_message= clientmessage.decode()
+        received_message = clientmessage.decode()
         print(f"Received from client {client_addr[0]}:{client_addr[1]}: {received_message}")
         if received_message.lower() == "exit":
             print(f"Client {client_addr[0]}:{client_addr[1]} requested to exit.")
@@ -21,6 +41,7 @@ def handle_client(client_socket, client_addr):
         response = input(f"Send to Client {client_addr[0]}:{client_addr[1]}: ") # the server requests for a response to the client
         client_socket.send(response.encode()) # the response is encoded in bytes in order to be sent to the client
     client_socket.close() # the client's connection is closed - therefore the server closes the client's socket
+
 
 # Server starter function
 def initiate_server():

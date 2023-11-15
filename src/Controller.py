@@ -11,6 +11,7 @@ STREAM={'movie.Mjpeg':61000}
 #temos de definir porta para bootstrap
 #temos de definir portas para streaming
 
+
 class Controller:
     
     def __init__(self):
@@ -36,7 +37,9 @@ class Controller:
 
     #retorna os ips associados ao RP
     def get_the_RP(self):
-         return self.nodos.get("RP", None)
+        rp_info = self.nodos.get("RP", {})
+        rp_ips = rp_info.get("ip", [])
+        return rp_ips
         
     #dado um IP quero saber o nome do seu nodo. 
     # ex: "10.2.3.1" representa o nodo N2
@@ -44,10 +47,12 @@ class Controller:
 
     def get_the_node_name(self, ip_address):
         nodo_name = None
-        for nodo, addresses in  self.nodos.items(): 
-                if ip_address in addresses:
-                    nodo_name = nodo 
-                    return nodo_name
+        for nodo, info in self.nodos.items():
+            addresses = info.get("ip", [])
+            if ip_address in addresses:
+                nodo_name = nodo
+                return nodo_name
+        return nodo_name
 
 
     # dado um nome de um nodo quero saber a lista dos seus IPS
@@ -55,10 +60,7 @@ class Controller:
     # retorna uma lista de strings
 
     def get_the_ips(self, node_name):
-        lista_enderecos = []
-        for nodo, addresses in self.nodos.items():
-            if node_name == nodo:
-                lista_enderecos = addresses
+        lista_enderecos = self.nodos.get(node_name, {}).get("ip", [])
         return lista_enderecos
     
     # devolve uma lista com os nodos vizinhos do nodo que providenciamos
@@ -72,33 +74,15 @@ class Controller:
 
     # se um dado nodo tiver uma dada vizinhança pretendemos obter um dicionário com o match de ips da sua vizinhança associada a cada nodo
     # ex: se a vizinhança de N2 for  ["N1","N3"] queremos ter um dicionário tipo {N1:[10.0.0.1,10.0.0.2], N3:[10.0.0.3,10.0.0.4]}
-    def get_the_vizinhanca_ips(self, none_name):
+    def get_the_vizinhanca_ips(self, node_name):
         dict_final = {}
-        lista_vizinhos= self.get_vizinhanca(none_name)
+        lista_vizinhos= self.get_vizinhanca(node_name)
         for elem in lista_vizinhos:
             list=self.get_the_ips(elem)
             dict_final.add(elem,list)
         return dict_final
 
-    def handle_request(self, client_socket, client_address):
-        node_name = None
 
-        # Recebe e processa dados do cliente
-        data = client_socket.recv(1024).decode('utf-8')
-        print(f"Received data: {data}")
-
-        # Verifica se o request's ip é valido na overlay network
-        node_name = self.get_the_node_name(client_address)
-        if(node_name):
-            # Responde com os nodos adjacentes
-            data = self.get_the_vizinhanca_ips(node_name)
-            serialized_data = pickle.dumps(data)
-            # Envia a resposta de volta ao cliente
-            client_socket.send(serialized_data)
-        
-        # caso ignore o request
-        # fecha o client socket
-        client_socket.close()
 
 
     def measure_latency(self, server_ip):
