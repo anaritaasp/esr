@@ -77,25 +77,29 @@ class Controller:
         lista_vizinhos= self.get_vizinhanca(none_name)
         for elem in lista_vizinhos:
             list=self.get_the_ips(elem)
-            dict_final.add(elem,list)
+            dict_final[elem] = list
         return dict_final
+
 
     def handle_request(self, client_socket, client_address):
         node_name = None
 
         # Recebe e processa dados do cliente
-        data = client_socket.recv(1024).decode('utf-8')
-        print(f"Received data: {data}")
+        data = client_socket.recv(1024)
+        print(f"Received data: {pickle.loads(data)}")
 
+        print(client_address)
         # Verifica se o request's ip é valido na overlay network
-        node_name = self.get_the_node_name(client_address)
+        node_name = self.get_the_node_name(client_address[0])
         if(node_name):
             # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
-            serialized_data = pickle.dumps(data)
+            serialized_data = {'error': False, 'data': data} 
             # Envia a resposta de volta ao cliente
-            client_socket.send(serialized_data)
-        
+            client_socket.send(pickle.dumps(serialized_data))
+        else:
+            response = {'error': True}
+            client_socket.send(pickle.dumps(response))
         # caso ignore o request
         # fecha o client socket
         client_socket.close()
@@ -122,7 +126,7 @@ class Controller:
         except Exception as e:
             print(f"Error measuring latency: {e}")
 
-        # Return None if there was an error or if the ping was unsuccessful
+        # Retorna None se houve um erro ou se o ping was unsuccessful
         return None
 
     def periodic_latency_checks(self):
@@ -130,7 +134,7 @@ class Controller:
             rp_ip = self.get_the_RP()
             if rp_ip:
                 for server_name in self.check_if_its_server():
-                    server_ip = self.get_the_ips(server_name)[0]  # Assuming one IP per server
+                    server_ip = self.get_the_ips(server_name)[0]  # Assumindo um IP por servidor
                     latency = self.measure_latency(server_ip)
 
                     threshold = 50  # Example threshold in milliseconds
@@ -151,7 +155,7 @@ class Controller:
         print ("Starting the Bootstrap")
         # Criamos o socket
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((SERVER_HOST, SERVER_PORT))
+        server_socket.bind(('0.0.0.0',SERVER_PORT))
         server_socket.listen(5) # 5 clients in queue
         # Espera pela conexão e pedidos dos servidores autorizados
         while(True):

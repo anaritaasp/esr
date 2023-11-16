@@ -3,11 +3,9 @@ import threading
 import sys
 import re
 from Controller import Controller
-from TreeRequest import TreeRequest
+from Neighbours import Neighbours
 
 class oNode:
-    controller_instance = Controller()
-    tree_instance = TreeRequest()
     # function that handles client functions
     # receives the client's socket 
     def handle_client(client_socket, client_addr):
@@ -95,11 +93,16 @@ class oNode:
                 controller = Controller()
                 controller_handler = threading.Thread(target=controller.run())
                 controller_handler.start()
-            #else:
-              #  if is_ip(argumento):
-                     # se o arg deve ser o ip do nodo definido como bootstrapper
-                #pyhton3 oNode.py 10.0.0.11
+            elif is_ip(argumento):
+                print("bom dia")
+              # o argumento é o ip do bootstrapper
+              #sendo uma conexão tcp - ele sabe o ip do nodo que mandou
+              #e depois retorna a lista dos seus vizinhoos
+                neighbours = Neighbours(argumento)#temos de pedir ao nodo bootsrapper que nos envie a info dos nossos vizinhos
+                n_handler = threading.Thread(target=neighbours.run())
+                n_handler.start()
             else:
                 print("Erro nos argumentos")
     else:
             print("Erro no número de argumentos")
+
