@@ -31,8 +31,15 @@ class Controller:
         return list
 
     #retorna os nodos que são servidores (começam com a letra s)
-    def check_if_its_server(self):
+    def get_the_servers_Names(self):
         return [elem for elem in self.return_node_name() if elem.startswith('s') or elem.startswith('S')]
+    
+    #retorna uma lista dos ips de todos os server na topologia
+    def get_all_servers(self):
+        list = []
+        for nodo, addresses in self.nodos.items():
+            if nodo.startswith('s') or nodo.startswith('S'):
+                list.append[addresses]
 
     #retorna os ips associados ao RP
     def get_the_RP(self):
