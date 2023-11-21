@@ -6,6 +6,8 @@ import sys, traceback, threading, socket
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
 
+# este servidor funciona localmente apenas (!!!!!)
+
 class Servidor:	
 
 	clientInfo = {}
@@ -77,7 +79,7 @@ class Servidor:
 		self.clientInfo['worker']= threading.Thread(target=self.sendRtp)
 		self.clientInfo['worker'].start()
 
-if __name__ == "__main__":
+if __name__ == "__main__":2
 	(Servidor()).main()
 
 

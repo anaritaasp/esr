@@ -8,14 +8,13 @@ import pickle
 import subprocess
 import time
 from Controller import Controller
-
-BOOTSTRAP_PORT = 60000
+from globalvars import BOOTSTRAP_PORT
 
 class Neighbours: 
     
     def __init__(self, bootstrapper_ip):
         self.bootstrapper_ip = bootstrapper_ip
-        self.my_neighbours={} #dicionário dos vizinhos do nodo
+        #self.my_neighbours={} #dicionário dos vizinhos do nodo
     
     def run(self):
         print("Connecting to the Bootstrap")
@@ -31,8 +30,9 @@ class Neighbours:
         deserialized_data = pickle.loads(response)
         if deserialized_data['error'] == True: #
             print("ERROR -  couldn't obtain info from bootstrap") 
+            exit(-1)
         else:
-            self.my_neighbours = deserialized_data['data'] ### the dictionary is inside the data part of the handle request
-            print(self.my_neighbours)            
+            ### the dictionary is inside the data part of the handle request
+            return (deserialized_data['node'],deserialized_data['data'])  
 
             

@@ -4,9 +4,9 @@ import socket
 import pickle
 import subprocess
 import time
+from globalvars import BOOTSTRAP_PORT
 
 SERVER_HOST = '0.0.0.0'  # Listen on all available network interfaces
-SERVER_PORT = 60000  # Choose a port number
 STREAM={'movie.Mjpeg':61000}
 #temos de definir porta para bootstrap
 #temos de definir portas para streaming
@@ -101,7 +101,7 @@ class Controller:
         if(node_name):
             # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
-            serialized_data = {'error': False, 'data': data} 
+            serialized_data = {'error': False, 'data': data, 'node': node_name} 
             # Envia a resposta de volta ao cliente
             client_socket.send(pickle.dumps(serialized_data))
         else:
@@ -162,7 +162,7 @@ class Controller:
         print ("Starting the Bootstrap")
         # Criamos o socket
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind(('0.0.0.0',SERVER_PORT))
+        server_socket.bind(('0.0.0.0',BOOTSTRAP_PORT))
         server_socket.listen(5) # 5 clients in queue
         # Espera pela conexão e pedidos dos servidores autorizados
         while(True):
