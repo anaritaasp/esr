@@ -1,4 +1,4 @@
-class arvore:
+class Tree:
     # só o rp é que tem esta info
     # para saber a localização dos servers
 
@@ -12,4 +12,4 @@ class arvore:
 
 
 if __name__ == "__main__":
-     minha_arvore = arvore()
+     minha_arvore = Tree()

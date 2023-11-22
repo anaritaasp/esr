@@ -3,6 +3,7 @@ import socket
 from globalvars import UDP_PORT
 from threading import Thread
 import pickle
+import Tree
 
 
 class Node:
@@ -10,6 +11,8 @@ class Node:
     # cada nodo vai redirecionar conteúdo
     def __init__(self, bootstrapper_ip) :
         self.node , self.neighbours =  Neighbours(bootstrapper_ip).run()  #nodos vizinhos do nosso nodo
+        if self.node == 'RP':
+            self.tree = Tree()
 
     def send_to_neighbours(self, udp_socket, data, client_address):
         previous_path = data['path']
@@ -20,18 +23,33 @@ class Node:
                 for addr in values:
                     udp_socket.sendto(pickle.dumps(packet), addr)
 
-            
+    
+    def redirect_with_path(self,udp_socket, data): 
+        next_node = data['path'].pop()
+        next_node_ips = self.neighbours[next_node]
+        packet = {'request':'tree_response','path':data['path']}
+        for addr in next_node_ips:
+            udp_socket.sendto(pickle.dumps(packet), addr)
+        
 
     def handle_tree_request(self,udp_socket, data, client_address):
         if self.node == 'RP':
-            None ## TODO
+            
+            # Add route to tree
+            # TODO
+            # -----------------
+            
+            self.redirect_with_path(udp_socket, data)
+            
         else:
             self.send_to_neighbours(udp_socket, data, client_address)
 
     def handle_request(self,udp_socket, data, client_address):
         deserialized_data = pickle.loads(data)
         if(deserialized_data['request'] == 'tree'):
-            self.handle_tree_request(udp_socket, data, client_address)
+            self.handle_tree_request(udp_socket, deserialized_data, client_address)
+        elif deserialized_data['request'] == 'tree_response':
+            None # TODO
         else:
             None # TODO    
 
@@ -59,4 +77,3 @@ class Node:
     # Manda para os nodos vizinhos
     # Nodos vizinhos reenviam se não encontrarem RP
     # else fazem traceback do caminho
-        
