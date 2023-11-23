@@ -5,7 +5,7 @@ from threading import Thread
 import pickle
 from Arvore import Arvore
 
-
+#classe onde tratamos das funções auxiliares à criação da árvore
 class Node:
     
     # controla a forma como os pedidos são tratados

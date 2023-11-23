@@ -1,3 +1,4 @@
+#classe onde criamos a estrutura da árvore
 class Arvore:
     # só o rp é que tem esta info
     # para saber a localização dos servers

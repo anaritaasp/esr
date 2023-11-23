@@ -11,6 +11,7 @@ STREAM={'movie.Mjpeg':61000}
 #temos de definir porta para bootstrap
 #temos de definir portas para streaming
 
+#classe onde damos o ficheiro json ao bootstrapper para ele ter conhecimento da topologia
 class Controller:
     
     def __init__(self):

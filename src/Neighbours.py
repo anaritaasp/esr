@@ -10,6 +10,7 @@ import time
 from Controller import Controller
 from globalvars import BOOTSTRAP_PORT
 
+#classe usada para um dado nodo pedir ao bootstrapper o dicionário dos seus vizinhos
 class Neighbours: 
     
     def __init__(self, bootstrapper_ip):
