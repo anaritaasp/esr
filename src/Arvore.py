@@ -13,4 +13,4 @@ class Arvore:
             self.tree[node_before_current]= current_node # dos filhos para o rp
 
 if __name__ == "__main__":
-     minha_arvore = Arvore()
+    minha_arvore = Arvore()

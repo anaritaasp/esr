@@ -12,13 +12,9 @@ class Node:
     # cada nodo vai redirecionar conteúdo
     def __init__(self, bootstrapper_ip) :
         self.node , self.neighbours =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
-        print(self.node)
-        if self.node == 'RP': # a árvore é iniciada quando estivermos no 'rp'
-            self.tree = Arvore()
 
     def start_dissemination(self, socket, request):
         self.send_to_neighbours(socket, {'request':request}, ('localhost', UDP_PORT))
-
 
     def send_to_neighbours(self, socket, data, client_address): # enquanto não encontrarmos o rp, vamos enviar o pacote de nodo a nodo
         previous_path = data['path']
