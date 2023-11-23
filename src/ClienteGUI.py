@@ -3,6 +3,7 @@ import tkinter.messagebox
 from PIL import Image, ImageTk
 import socket, threading, sys, traceback, os
 from globalvars import RTP_PORT
+from Node import Node
 
 from RtpPacket import RtpPacket
 
@@ -10,6 +11,7 @@ CACHE_FILE_NAME = "cache-"
 CACHE_FILE_EXT = ".jpg"
 
 class ClienteGUI:
+	
 	
 	# Initiation..
 	def __init__(self, master, node):

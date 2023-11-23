@@ -94,6 +94,7 @@ class oNode:
                 controller = Controller()
                 controller_handler = threading.Thread(target=controller.run())
                 controller_handler.start()
+            
             elif is_ip(argumento):
               # o argumento é o ip do bootstrapper
               #sendo uma conexão tcp - ele sabe o ip do nodo que mandou
