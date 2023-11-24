@@ -21,6 +21,7 @@ class Controller:
         neighbours = json.load(f)
         self.nodos = neighbours.get('Nodos') #dicionário com os nodos
         self.vizinhos = neighbours.get('Adjacentes') #dicionário com os vizinhos
+        self.conteudo = neighbours.get('Conteúdo')
         self.latency={}
        # self.address = default_ip_address
     
@@ -88,6 +89,9 @@ class Controller:
             dict_final[elem] = list
         return dict_final
 
+    def get_my_content(self, node_name):
+        return self.conteudo[node_name]
+
 
     def handle_request(self, client_socket, client_address):
         node_name = None
@@ -102,7 +106,8 @@ class Controller:
         if(node_name):
             # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
-            serialized_data = {'error': False, 'data': data, 'node': node_name} 
+            # e responde também se tem conteúdo -> no caso de ser servidor , otherwise none
+            serialized_data = {'error': False, 'data': data, 'node': node_name, 'content':self.get_my_content(node_name), 'servers':(self.get_all_servers() if node_name == 'RP' else None)} 
             # Envia a resposta de volta ao cliente
             client_socket.send(pickle.dumps(serialized_data))
         else:

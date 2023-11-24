@@ -6,14 +6,17 @@ import pickle
 from Arvore import Arvore
 from Packet import Packet
 
+
 #classe onde tratamos das funções auxiliares aos pedidos do cliente e entrega de conteúdo
 class Node:
    
     # controla a forma como os pedidos são tratados
     # cada nodo vai redirecionar conteúdo
-    def __init__(self, bootstrapper_ip, content) :
-        self.node , self.neighbours =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
-        self.content = content
+    def __init__(self, bootstrapper_ip) :
+        self.node , self.neighbours, self.own_content, self.servers =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
+        self.streaming = {}
+        self.content = "movie.Mjpeg"
+        
 
     # função para iniciar um pedido
     def start_dissemination(self, socket, data, content):
@@ -41,7 +44,7 @@ class Node:
         next_node = data.path.pop()
         next_node_ips = self.neighbours[next_node]
         if data.path is not None and data.path != []:
-            packet = {'request':'tree_response','path':data['path']}
+            #packet = {'request':'tree_response','path':data['path']}
             packet = Packet('tree_response', data.path, data.error, data.content)
             print(packet) #para efeitos de debug
             for addr in next_node_ips:
@@ -50,54 +53,60 @@ class Node:
         else:
             print('Info reached RP.')        
 
-    # trata do pedido até ao rp
-    def handle_tree_request(self,socket, data, client_address):
-        if self.node == 'RP':
-            """
-            codigo que tavamos a usar quando achavamos que tinhamos de ter uma estrutura árvore
-            -------------------------------------------------
-            # Add route to tree with the full list of the path
-            path_copy = list(data.path)
-            self.tree.route_to_rp(path_copy, self.node)
-            print(self.tree.tree)
-            print(data)
-            self.handle_tree_response(socket, data) """
-            
-            
-        else:
-            self.send_to_neighbours(socket, data, client_address)
-
+    def handle_response_stream(self, socket, data):
+        #hop a hop de volta ao cliente
+        
+        next_node = data.path.pop()
+        next_node_ips = self.neighbours[next_node]
+        
     
-    def handle_stream_request(self,socket, data, client_address):
+
+    def handle_request_stream(self,socket, data, client_address):
         # if found content, reply with path to accept?
-        #if :
+        if data.content in self.streaming.values():
+            # we've found the content
+            # must reply to the client with the 
+            self.handle_content_response(socket, data)
+       
         #    None
         # else redirect
-        #else:
+
+        # if is RP
+        elif self.node is 'RP':
+            # we get the servers from the bootstrap
+            servers_ip_list = self.servers
+            # Select server with content
+            #!------------------- FOR NOW USE THE FIRST ONE - for streaming tests purpose ------------------------------------------------------------------------------
+            chosen_server= servers_ip_list.pop()
+            #once we have the ip address
+            # confirm path with client
+            self.handle_response_stream(socket, data)
+        # if its not a server nor rp
+        else: 
+            # it won't have content
+            # forward the message to it's neighbours
             self.send_to_neighbours(socket,data, client_address)
 
     def handle_request(self,socket, data, client_address):
         deserialized_data = pickle.loads(data)
         print(deserialized_data)
-        if(deserialized_data.request == 'tree'):
-            self.handle_tree_request(socket, deserialized_data, client_address)
-        elif deserialized_data.request == 'tree_response':
-            self.handle_tree_response(socket, deserialized_data)
-        elif deserialized_data.request == 'stream':
-            self.handle_stream_request(socket, deserialized_data, client_address)
+        if deserialized_data.request == 'request_stream':
+            self.handle_request_stream(socket, deserialized_data, client_address)
+        elif deserialized_data.request == 'response_stream':
+            self.handle_response_stream(socket, data)
         else:
             None # TODO    
 
 
     
 
-    def run(self, content):
+    def run(self):
         print('Node started...')
-        socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #abre socket
+        socket_ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #abre socket
 
         # Bind the socket to a specific address and port
         server_address = ('0.0.0.0', UDP_PORT)
-        socket.bind(server_address)
+        socket_.bind(server_address)
 
         # SEND REQUEST - TEST
         #self.start_dissemination(socket, 'tree')
@@ -105,9 +114,9 @@ class Node:
 
 
         while True:
-            data, client_address = socket.recvfrom(1024)
+            data, client_address = socket_.recvfrom(1024)
             print(client_address)
-            request_handler = Thread(target=self.handle_request,args=(socket, data, client_address))
+            request_handler = Thread(target=self.handle_request,args=(socket_, data, client_address))
             request_handler.start()
 
             

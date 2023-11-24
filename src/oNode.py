@@ -104,7 +104,7 @@ class oNode:
                 n_handler.start()
             else:
                 print("Erro nos argumentos")
-        beginTree = Node(argumento)
-        beginTree.run()
+        node = Node(argumento)
+        node.run()
     else:
             print("Erro no número de argumentos")
