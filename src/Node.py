@@ -55,37 +55,53 @@ class Node:
 
     def handle_response_stream(self, socket, data):
         #hop a hop de volta ao cliente
-        
-        next_node = data.path.pop()
-        next_node_ips = self.neighbours[next_node]
+
+         # Verifica se o nodo atual possui o conteúdo para streaming
+        if self.content == data.content:
+            # Se possui o conteúdo, começa o streaming de volta ao cliente
+            print(f"Initiating streaming of {data.content} to client {data.path[0]}.")
+
+            # Obtém o caminho de retorno (traceback) do pacote de dados
+            traceback_path = data.path[::-1]  # Reverte o caminho para enviar hop a hop de volta ao cliente
+
+            # Envia o streaming hop a hop de volta ao cliente
+            return_path = []
+            for node in traceback_path:
+                if node not in return_path:
+                    # Cria um pacote com informações de streaming de volta ao cliente
+                    return_path.append(node)
+                    packet = Packet('response_stream', return_path, None, data.content)
+                    # Envia o pacote para o próximo nodo na rota de retorno
+                    socket.sendto(pickle.dumps(packet), (node, UDP_PORT))
+            print("Streaming response sent to client.")
+        else:
+            print("Content not found in the current node.")
         
     
 
     def handle_request_stream(self,socket, data, client_address):
-        # if found content, reply with path to accept?
+        # Se o conteúdo está presente no streaming local
         if data.content in self.streaming.values():
-            # we've found the content
-            # must reply to the client with the 
-            self.handle_content_response(socket, data)
-       
-        #    None
-        # else redirect
-
-        # if is RP
-        elif self.node is 'RP':
-            # we get the servers from the bootstrap
-            servers_ip_list = self.servers
-            # Select server with content
-            #!------------------- FOR NOW USE THE FIRST ONE - for streaming tests purpose ------------------------------------------------------------------------------
-            chosen_server= servers_ip_list.pop()
-            #once we have the ip address
-            # confirm path with client
+            # Encontramos o conteúdo, responder ao cliente com o caminho para aceitar
             self.handle_response_stream(socket, data)
-        # if its not a server nor rp
+        # Se não encontrou o conteúdo localmente
         else: 
-            # it won't have content
-            # forward the message to it's neighbours
-            self.send_to_neighbours(socket,data, client_address)
+            # Se for o ponto de referência (RP)
+            if self.node == 'RP':
+                # Obtemos a lista de servidores do bootstrap
+                servers_ip_list = self.servers
+                
+                # Selecionamos um servidor com o conteúdo (por enquanto, use o primeiro)
+                chosen_server = servers_ip_list.pop() if servers_ip_list else None
+                
+                if chosen_server:
+                    # Confirmamos o caminho com o cliente
+                    self.handle_response_stream(socket, data)
+            else:
+                # Se não for um servidor nem o ponto de referência (RP)
+                # Encaminhamos a mensagem para os vizinhos
+                self.send_to_neighbours(socket, data, client_address)
+                
 
     def handle_request(self,socket, data, client_address):
         deserialized_data = pickle.loads(data)
@@ -95,7 +111,8 @@ class Node:
         elif deserialized_data.request == 'response_stream':
             self.handle_response_stream(socket, data)
         else:
-            None # TODO    
+            None # TODO: handle other requests
+               
 
 
     
