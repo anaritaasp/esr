@@ -35,5 +35,3 @@ class Neighbours:
         else:
             ### the dictionary is inside the data part of the handle request
             return (deserialized_data['node'],deserialized_data['data'],deserialized_data['content'], deserialized_data['servers'])  
-
-            

@@ -5,10 +5,9 @@ import sys, traceback, threading, socket
 
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
-
-# este servidor funciona localmente apenas (!!!!!)
-
+from Node import Node
 class Servidor:	
+
 
 	clientInfo = {}
 
@@ -56,31 +55,44 @@ class Servidor:
 		
 		return rtpPacket.getPacket()
 
-	
-	def main(self):
-		try:
-			# Get the media file name
-			filename = sys.argv[1]
-			print("Using provided video file ->  " + filename)
-		except:
-			print("[Usage: Servidor.py <videofile>]\n")
-			filename = "movie.Mjpeg"
-			print("Using default video file ->  " + filename)
 
-		# videoStram
-		self.clientInfo['videoStream'] = VideoStream(filename)
+	def run_stream(self, rtp_addr, rtp_port):	
 		# socket
-		self.clientInfo['rtpPort'] = 25000
-		self.clientInfo['rtpAddr'] = socket.gethostbyname('127.0.0.1')
+		#self.clientInfo['rtpPort'] = 25000
+		#self.clientInfo['rtpAddr'] = socket.gethostbyname('127.0.0.1')
+		self.clientInfo['rtpPort'] = rtp_port
+		self.clientInfo['rtpAddr'] = socket.gethostbyname(rtp_addr)
 		print("Sending to Addr:" + self.clientInfo['rtpAddr'] + ":" + str(self.clientInfo['rtpPort']))
 		# Create a new socket for RTP/UDP
 		self.clientInfo["rtpSocket"] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self.clientInfo['event'] = threading.Event()
 		self.clientInfo['worker']= threading.Thread(target=self.sendRtp)
 		self.clientInfo['worker'].start()
+	
+	def main(self):
 
-if __name__ == "__main__":2
-	(Servidor()).main()
+		try:
+			bootstrapper_ip = sys.argv[1] 
+			#content = sys.argv[2]
+		except:
+			print("[Usage: Servidor.py <bootstrapper_ip>]\n")	
+		
+		"""try:
+			# Get the media file name
+			filename = sys.argv[1]
+			print("Using provided video file ->  " + filename)
+		except:
+			print("[Usage: Servidor.py <videofile>]\n")"""
+		
+		filename = "movie.Mjpeg"
+		print("Using default video file ->  " + filename)
+		# videoStram
+		self.clientInfo['videoStream'] = VideoStream(filename)
+		node = Node(bootstrapper_ip,self)
+		node.run()
 
+	
 
+if __name__ == "__main__":
+		(Servidor()).main()
 

@@ -41,7 +41,23 @@ class Controller:
         list = []
         for nodo, addresses in self.nodos.items():
             if nodo.startswith('s') or nodo.startswith('S'):
-                list.append[addresses]
+                list.append(addresses)
+    
+    def get_my_ip(self, nodo_name):
+        for nodo, addresses in self.nodos.items():
+            if nodo_name == nodo:
+                return addresses
+   
+    def get_all_servers_with_content(self):
+        server_list = []
+        for nodo, content in self.conteudo.items():
+            if content:
+                my_ip = self.get_my_ip(nodo)
+                if my_ip:
+                    server_list.extend(my_ip)
+
+        return server_list
+    
 
     #retorna os ips associados ao RP
     def get_the_RP(self):
@@ -107,7 +123,7 @@ class Controller:
             # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
             # e responde também se tem conteúdo -> no caso de ser servidor , otherwise none
-            serialized_data = {'error': False, 'data': data, 'node': node_name, 'content':self.get_my_content(node_name), 'servers':(self.get_all_servers() if node_name == 'RP' else None)} 
+            serialized_data = {'error': False, 'data': data, 'node': node_name, 'content':self.get_my_content(node_name), 'servers':(self.get_all_servers_with_content() if node_name == 'RP' else None)} 
             # Envia a resposta de volta ao cliente
             client_socket.send(pickle.dumps(serialized_data))
         else:

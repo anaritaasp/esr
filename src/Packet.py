@@ -9,6 +9,7 @@ class Packet:
         self.reverse_path = reverse_path # caminho reverso guardado
         self.error = error #se implementarmos correção de erros 
         self.content = content #conteúdo que o cliente pede
+
         
     def __str__(self):
         return f"ID={str(self.id)},request={self.request},path={self.path},reverse_path={self.reverse_path},error={self.error},content={self.content}"
