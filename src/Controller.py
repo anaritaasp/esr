@@ -106,7 +106,7 @@ class Controller:
         return dict_final
 
     def get_my_content(self, node_name):
-        return self.conteudo[node_name]
+        return self.conteudo[node_name] if self.conteudo[node_name] else None
 
 
     def handle_request(self, client_socket, client_address):
