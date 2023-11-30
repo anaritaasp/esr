@@ -20,6 +20,7 @@ class ClienteGUI:
 		self.master = master
 		self.master.protocol("WM_DELETE_WINDOW", self.handler)
 		self.createWidgets()
+		self.addr = '0.0.0.0'
 		self.port = RTP_PORT
 		self.rtspSeq = 0
 		self.sessionId = 0
@@ -27,10 +28,11 @@ class ClienteGUI:
 		self.teardownAcked = 0
 		
 		request_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		packet = Packet('request_stream',[],[],None,'movie.Mjp')
+		packet = Packet('request_stream',[],[],None,'movie.Mjpeg')
 		node.start_dissemination(request_socket,packet,'movie.Mjpeg')
+		#request_socket.shutdown(socket.SHUT_RDWR)
 
-		self.openRtpPort()
+		#self.openRtpPort()
 		self.playMovie()
 		self.frameNbr = 0
 		
@@ -131,7 +133,7 @@ class ClienteGUI:
 		self.rtpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		
 		# Set the timeout value of the socket to 0.5sec
-		self.rtpSocket.settimeout(0.5)
+		self.rtpSocket.settimeout(4.5)
 		
 		try:
 			# Bind the socket to the address using the RTP port
