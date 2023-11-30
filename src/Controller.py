@@ -68,13 +68,12 @@ class Controller:
     # retorna string
 
     def get_the_node_name(self, ip_address):
-        nodo_name = None
         for nodo, addresses in  self.nodos.items(): 
-                if ip_address in addresses:
-                    nodo_name = nodo 
-                    return nodo_name
+            if ip_address in addresses:
+                return nodo
+        return None
 
-
+    
     # dado um nome de um nodo quero saber a lista dos seus IPS
     # ex: dado o nodo N2 providenciamos a lista dos seus ips ["10.2.3.1"]
     # retorna uma lista de strings
@@ -106,7 +105,7 @@ class Controller:
         return dict_final
 
     def get_my_content(self, node_name):
-        return self.conteudo[node_name] if self.conteudo[node_name] else None
+        return self.conteudo.get(node_name, None)
 
 
     def handle_request(self, client_socket, client_address):
@@ -122,8 +121,10 @@ class Controller:
         if(node_name):
             # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
+            print(node_name)
+            servers = self.get_all_servers_with_content() if node_name == 'RP' else None
             # e responde também se tem conteúdo -> no caso de ser servidor , otherwise none
-            serialized_data = {'error': False, 'data': data, 'node': node_name, 'content':self.get_my_content(node_name), 'servers':(self.get_all_servers_with_content() if node_name == 'RP' else None)} 
+            serialized_data = {'error': False, 'data': data, 'node': node_name, 'content':self.get_my_content(node_name), 'servers':servers} 
             # Envia a resposta de volta ao cliente
             client_socket.send(pickle.dumps(serialized_data))
         else:

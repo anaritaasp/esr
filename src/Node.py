@@ -23,7 +23,8 @@ class Node:
             controller_handler = threading.Thread(target=controller.run())
             controller_handler.start()
             bootstrapper_ip = 'localhost'
-        self.node , self.neighbours, self.own_content, self.servers =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
+        self.node , self.neighbours, self.own_content, servers =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
+        self.servers = servers.copy() if servers else []
         self.streaming = {}
         self.content = "movie.Mjpeg"
         self.server_stream = server_stream
@@ -38,7 +39,7 @@ class Node:
         previous_path = data.path
         if(previous_path is None): previous_path = []
         previous_path.append(self.node) # adiciona o nodo à rota
-        packet = Packet(data.request,previous_path,None,content)
+        packet = Packet(data.request,previous_path, [],None,content)
         print(packet)
         for _,values in self.neighbours.items():  # vão ser ips
             if client_address[0] not in values:
@@ -133,7 +134,11 @@ class Node:
         if data.content in self.own_content:
             # start streaming to rp
             self.server_stream.run_stream(rp_addr[0], RTP_PORT)
-            
+
+    def check_if_is_client(self):
+        if self.node.startswith('C'):
+            return True
+        else: return False 
                 
     def handle_request_stream(self,socket, data, client_address):
         # if found content, reply with path to accept?
@@ -144,10 +149,12 @@ class Node:
        
         #    None
         # else redirect
-
+    
         # if is RP
         elif self.node == 'RP':
             # we get the servers from the bootstrap
+            print('name: ', self.node)
+            print("servers: ", self.servers)
             servers_ip_list = self.servers
             # Select server with content
             #!------------------- FOR NOW USE THE FIRST ONE - for streaming tests purpose ------------------------------------------------------------------------------
@@ -159,7 +166,7 @@ class Node:
         else: 
             # it won't have content
             # forward the message to it's neighbours
-            self.send_to_neighbours(socket,data, client_address)
+            self.send_to_neighbours(socket,data, client_address, data.content)
 
     def handle_request(self,socket, data, client_address):
         deserialized_data = pickle.loads(data)
@@ -186,8 +193,11 @@ class Node:
         socket_.bind(server_address)
 
         # SEND REQUEST - TEST
+        
         #self.start_dissemination(socket, 'tree')
         # ----------------
+
+
 
 
         while True:
@@ -201,12 +211,15 @@ class Node:
 
 
 if __name__ == "__main__":
+    bootstrapper_ip = None
     try:
         bootstrapper_ip = sys.argv[1] 
         #content = sys.argv[2]
-        (Node(bootstrapper_ip, None)).main()
     except:
         print("[Usage: Node.py <bootstrapper_ip>]\n")	
+    
+    if bootstrapper_ip:
+        (Node(bootstrapper_ip, None)).run()
     
 
 

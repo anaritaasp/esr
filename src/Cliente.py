@@ -20,6 +20,6 @@ if __name__ == "__main__":
 	#node = Node(bootstrapper_ip, content) #vamos buscar os seus vizinhos
 	node = Node(bootstrapper_ip, None) #vamos buscar os seus vizinhos
 	app = ClienteGUI(root, node) #trata dos pacotes RTP e abrirá a janela de streaming
-	app.master.title("Cliente Request")	
+	app.master.title("Client Request")	
 	root.mainloop()
 	

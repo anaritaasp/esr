@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import socket, threading, sys, traceback, os
 from globalvars import RTP_PORT
 from Node import Node
+from Packet import Packet
 
 from RtpPacket import RtpPacket
 
@@ -24,6 +25,11 @@ class ClienteGUI:
 		self.sessionId = 0
 		self.requestSent = -1
 		self.teardownAcked = 0
+		
+		request_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		packet = Packet('request_stream',[],[],None,'movie.Mjp')
+		node.start_dissemination(request_socket,packet,'movie.Mjpeg')
+
 		self.openRtpPort()
 		self.playMovie()
 		self.frameNbr = 0
