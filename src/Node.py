@@ -145,7 +145,7 @@ class Node:
         # else redirect
 
         # if is RP
-        elif self.node is 'RP':
+        elif self.node == 'RP':
             # we get the servers from the bootstrap
             servers_ip_list = self.servers
             # Select server with content
