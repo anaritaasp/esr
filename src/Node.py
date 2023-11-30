@@ -7,8 +7,8 @@ from Arvore import Arvore
 from Packet import Packet
 import sys
 import subprocess
-from Servidor import Servidor
 from Controller import Controller
+
 import threading
 
 
@@ -129,6 +129,7 @@ class Node:
     
     # pedido de stream ao servidor escolhido pelo rp
     def handle_content_request(self, socket, data, rp_addr):
+        from Servidor import Servidor
         if data.content in self.own_content:
             # start streaming to rp
             self.server_stream.run_stream(rp_addr[0], RTP_PORT)
