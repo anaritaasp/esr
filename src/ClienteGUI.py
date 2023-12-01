@@ -15,8 +15,9 @@ class ClienteGUI:
 	
 	
 	# Initiation..
-	def __init__(self, master, node):
-		self.node = node
+	def __init__(self, master, bootstrapper_ip):
+		self.node = Node(bootstrapper_ip, None) #vamos buscar os seus vizinhos
+		threading.Thread(target=self.node.run, args=()).start()
 		self.master = master
 		self.master.protocol("WM_DELETE_WINDOW", self.handler)
 		self.createWidgets()
@@ -29,10 +30,12 @@ class ClienteGUI:
 		
 		request_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		packet = Packet('request_stream',[],[],None,'movie.Mjpeg')
-		node.start_dissemination(request_socket,packet,'movie.Mjpeg')
+		self.node.start_dissemination(request_socket,packet,'movie.Mjpeg')
 		#request_socket.shutdown(socket.SHUT_RDWR)
 
-		#self.openRtpPort()
+		
+
+		self.openRtpPort()
 		self.playMovie()
 		self.frameNbr = 0
 		

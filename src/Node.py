@@ -9,8 +9,11 @@ import sys
 import subprocess
 from Controller import Controller
 from ListHandler import ListHandler as LH
-
 import threading
+from socketHandler import socketHandler
+
+# Define a lock for synchronization
+streaming_lock = threading.Lock()
 
 
 #classe onde tratamos das funções auxiliares aos pedidos do cliente e entrega de conteúdo
@@ -29,10 +32,14 @@ class Node:
         self.content = "movie.Mjpeg"
         self.server_stream = server_stream
         self.client = None
+        self.tk = None
         self.packet_ids = LH()
     
     def add_client(self, client):
         self.client = client
+
+    def add_Tk(self, root):
+        self.tk = root
 
     # verificamos se existe um pacote com o mesmo id, se não existe ele adiciona à lista de ids e continua o processo de pedir
     def control_ids(self, id):
@@ -61,22 +68,6 @@ class Node:
                     socket.sendto(pickle.dumps(packet), addr2)
 
     
-    # quando chega ao rp - temos o caminho que foi feito da origem do request até ao rp e depois fazemos o traceback de volta
-    # basicamente entrega o conteúdoo ao cliente - se chegou ao rp
-    def handle_tree_response(self,socket, data):  
-        print(data.path)
-        next_node = data.path.pop()
-        next_node_ips = self.neighbours[next_node]
-        if data.path is not None and data.path != []:
-            #packet = {'request':'tree_response','path':data['path']}
-            packet = Packet('tree_response', data.path, data.reverse_path, data.error, data.content)
-            print(packet) #para efeitos de debug
-            for addr in next_node_ips:
-                #print(addr)
-                socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
-        else:
-            print('Info reached RP.')        
-
     # função que confirma com o cliente que ele aceita a conexão para envio de conteúdo
     def handle_response_stream(self, socket, data, client_addr):
         #hop a hop de volta ao cliente
@@ -91,21 +82,27 @@ class Node:
             for addr in next_node_ips:
                 socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
         elif (len(data.path) == 0): #chegamos ao cliente
-            """from ClienteGUI import ClienteGUI 
-            if self.client:
-                self.client.addr = client_addr
-                self.client.openRtpPort()"""
-                #perguntamos se aceita a conexão do nodo que possui o conteúdo
-            packet = Packet('stream_confirm', data.path, data.reverse_path, data.error, data.content)
+            #perguntamos se aceita a conexão do nodo que possui o conteúdo
             next_node = data.reverse_path.pop()
             next_node_ips = self.neighbours[next_node]
             data.path.append(self.node)
+            packet = Packet('stream_confirm', data.path, data.reverse_path, data.error, data.content)
             print("Sending ", packet.request, " to ", next_node)
             for addr in next_node_ips:
-                    socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
+                socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
                 
                 
-    def handle_stream_confirm(self, socket, data):
+    def handle_stream_confirm(self, socket, data, client_addr):
+        streaming_lock.acquire()
+        try:
+            print("hs - data content ",data.content)
+            stream_info = self.streaming.get(data.content, None)
+            if stream_info is None:
+                self.streaming[data.content] = socketHandler()
+            self.streaming[data.content].ips_list.append((client_addr[0],RTP_PORT))
+            print("hs - streaming ",self.streaming)
+        finally:
+            streaming_lock.release()        
          # o cliente já recebeu o pedido de stream e manda hop a hop até ao servidor a sua confirmação
         if len(data.reverse_path) > 0: # o caminho do cliente até ao nodo que tem o conteúdo para streamar
             next_node = data.reverse_path.pop()
@@ -123,8 +120,10 @@ class Node:
             print("Sending ", packet.request, " to ", next_node)
             for addr in next_node_ips:
                 socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
-                
-    def handle_stream(self, socket, data):
+            self.redirect_stream(data)
+
+    # já chegou a confirmação ao nodo que tem a stream e ele responde com tá tudo pronto para streamar   
+    def handle_stream(self, socket_, data):
         # confirmamos o pedido de stream e vamos abrir a porta para iniciar o stream
         if len(data.path) > 0: # o caminho do cliente até ao nodo que tem o conteúdo para streamar
             next_node = data.path.pop()
@@ -132,15 +131,35 @@ class Node:
             packet = Packet('stream', data.path, data.reverse_path, data.error, data.content)
             print("Sending ", packet.request, " to ", next_node)
             for addr in next_node_ips:
-                socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
-                
+                socket_.sendto(pickle.dumps(packet), (addr,UDP_PORT))
+            self.redirect_stream(data)
+           
+
+    def redirect_stream(self, data):
         # abrimos uma porta para iniciar o stream ---
         # ! para já só uma porta
-        stream_port = RTP_PORT
-        rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        rtp_socket.bind((socket.gethostname(), stream_port))
-        # TODO receive and send RTP packets to client
+        stream_info = self.streaming.get(data.content, None)
+        if stream_info:    
+            if stream_info.socket is None:
+                self.streaming[data.content].socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self.streaming[data.content].socket.bind(('0.0.0.0', RTP_PORT))
+                rtp_socket = self.streaming[data.content].socket
+                print('RTP socket open - ', rtp_socket.getsockname())
 
+            # temos que redirecionar os pacotes
+            while True:
+                # como len é > 0 ainda nao tamos no cliente
+                rtp_packet = rtp_socket.recv(20480)
+                #print(rtp_packet)
+                if rtp_packet:
+                    streaming_lock.acquire()
+                    try:
+                        #print(self.streaming[data.content])
+                        for ip in self.streaming[data.content].ips_list:
+                            self.streaming[data.content].socket.sendto(rtp_packet, ip)
+                    finally:
+                        streaming_lock.release()
+        
     # o rp tem de ter a lista dos ips dos servidores
     # o rp vai mandar request para todos os servidores
     # e depois só os que tiverem o conteúdo é que respondem
@@ -166,53 +185,53 @@ class Node:
                 
     def handle_request_stream(self,socket, data, client_address):
         # if found content, reply with path to accept?
-        if data.content in self.streaming.values():
+        streaming_lock.acquire()
+        if data.content in self.streaming.keys():
+            streaming_lock.release()
             # we've found the content
             # must reply to the client with the 
-            self.handle_response_stream(socket, data)
-       
-        #    None
-        # else redirect
-    
-        # if is RP
-        elif self.node == 'RP':
-            # we get the servers from the bootstrap
-            servers_ip_list = self.servers.copy()
-            # Select server with content
-            #!------------------- FOR NOW USE THE FIRST ONE - for streaming tests purpose ------------------------------------------------------------------------------
-            chosen_server= servers_ip_list.pop()
-            #once we have the ip address
-            # confirm path with client
-            self.content_request(socket, data)
-            next_node = data.path.pop()
-            next_node_ips = self.neighbours[next_node]
-            data.reverse_path.append(self.node) 
-            packet = Packet('response_stream', data.path, data.reverse_path, data.error, data.content)
-            print("Sending ", packet.request, " to ", next_node)
-            for addr in next_node_ips:
-                socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
-        # if its not a server nor rp
+            self.handle_response_stream(socket, data, client_address)
         else: 
-            # it won't have content
-            # forward the message to it's neighbours
-            self.send_to_neighbours(socket,data, client_address, data.content)
+            streaming_lock.release()
+            if self.node == 'RP':
+                # we get the servers from the bootstrap
+                servers_ip_list = self.servers.copy()
+                # Select server with content
+                #!------------------- FOR NOW USE THE FIRST ONE - for streaming tests purpose ------------------------------------------------------------------------------
+                chosen_server= servers_ip_list.pop()
+                #once we have the ip address
+                # confirm path with client
+                self.content_request(socket, data)
+                next_node = data.path.pop()
+                next_node_ips = self.neighbours[next_node]
+                data.reverse_path.append(self.node) 
+                packet = Packet('response_stream', data.path, data.reverse_path, data.error, data.content)
+                print("Sending ", packet.request, " to ", next_node)
+                for addr in next_node_ips:
+                    socket.sendto(pickle.dumps(packet), (addr,UDP_PORT))
+            # if its not a server nor rp
+            else: 
+                # it won't have content
+                # forward the message to it's neighbours
+                self.send_to_neighbours(socket,data, client_address, data.content)
 
     def handle_request(self,socket, data, client_address):
         deserialized_data = pickle.loads(data)
         if self.control_ids(deserialized_data.id):
             print("-----\npacket -> ",deserialized_data, "-----\n")
             if deserialized_data.request == 'request_stream':
-                self.handle_request_stream(socket, deserialized_data, client_address)
+                self.handle_request_stream(socket, deserialized_data, client_address) # pedido cliente
             elif deserialized_data.request == 'response_stream':
-                self.handle_response_stream(socket, deserialized_data)
+                self.handle_response_stream(socket, deserialized_data, client_address) # tem o conteudo devolve ao cliente hop a hop
             elif deserialized_data.request == 'stream_confirm':
-                self.handle_stream_confirm(socket, deserialized_data)
+                self.handle_stream_confirm(socket, deserialized_data,client_address) # cliente confirma o caminho
             elif deserialized_data.request == 'stream':
-                self.handle_stream(socket,deserialized_data)
+                self.handle_stream(socket,deserialized_data) # 
             elif deserialized_data.request == 'content_request':
                 self.handle_content_request(socket, deserialized_data, client_address)
             else:
-                None # TODO    
+                None # TODO 
+        sys.stdout.flush()   
 
     def run(self): 
         print('Node started...')
@@ -226,18 +245,11 @@ class Node:
         
         #self.start_dissemination(socket, 'tree')
         # ----------------
-
-
-
-
         while True:
             data, client_address = socket_.recvfrom(1024)
-            print(client_address)
+            print("Received packet from ", client_address)
             request_handler = Thread(target=self.handle_request,args=(socket_, data, client_address))
             request_handler.start()
-
-
-
 
 
 if __name__ == "__main__":

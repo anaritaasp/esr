@@ -6,8 +6,6 @@ from ClienteGUI import ClienteGUI
 from Node import Node
 import threading
 
-#arrancamos o cliente com o ip do bootstrapper e o nome do conteúdo que quer pedir (ex:Movie.jpeg)
-
 if __name__ == "__main__":
 	try:
 		bootstrapper_ip = sys.argv[1] 
@@ -16,13 +14,10 @@ if __name__ == "__main__":
 		print("[Usage: Cliente.py <bootstrapper_ip>]\n")	
 	
 	root = Tk()
-	
 	# Create a new client
 	#node = Node(bootstrapper_ip, content) #vamos buscar os seus vizinhos
-	node = Node(bootstrapper_ip, None) #vamos buscar os seus vizinhos
-	app = ClienteGUI(root, node) #trata dos pacotes RTP e abrirá a janela de streaming
-	node.add_client(app)
+	app = ClienteGUI(root, bootstrapper_ip) # trata dos pacotes RTP e abrirá a janela de streaming
+	#node.add_client(app)
 	app.master.title("Client Request")	
-	node_handler = threading.Thread(target=node.run,args=())
-	node_handler.start()
+	#threading.Thread(target=root.mainloop, args=()).start()
 	root.mainloop()
