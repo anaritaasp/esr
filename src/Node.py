@@ -11,6 +11,9 @@ from Controller import Controller
 from ListHandler import ListHandler as LH
 import threading
 from socketHandler import socketHandler
+import subprocess
+import re
+import netifaces
 
 # Define a lock for synchronization
 streaming_lock = threading.Lock()
@@ -24,9 +27,15 @@ class Node:
     def __init__(self, bootstrapper_ip, server_stream) :
         if bootstrapper_ip == 'start':
             controller = Controller()
-            controller_handler = threading.Thread(target=controller.run())
+            controller_handler = threading.Thread(target=controller.run,args=())
             controller_handler.start()
-            bootstrapper_ip = 'localhost'
+            try:
+                addresses = netifaces.ifaddresses('eth0')
+                bootstrapper_ip = addresses[netifaces.AF_INET][0]['addr']
+            except (KeyError, ValueError, IndexError):
+                print(f"Error getting IP address for interface eth0")
+                bootstrapper_ip = 'localhost'  # Return 'localhost' as a default value
+
         self.node , self.neighbours, self.own_content, self.servers =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
         self.streaming = {}
         self.content = "movie.Mjpeg"
@@ -143,9 +152,9 @@ class Node:
             if stream_info.socket is None:
                 self.streaming[data.content].socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 self.streaming[data.content].socket.bind(('0.0.0.0', RTP_PORT))
-                rtp_socket = self.streaming[data.content].socket
                 print('RTP socket open - ', rtp_socket.getsockname())
 
+            rtp_socket = self.streaming[data.content].socket
             # temos que redirecionar os pacotes
             while True:
                 # como len é > 0 ainda nao tamos no cliente
@@ -163,12 +172,12 @@ class Node:
     # o rp tem de ter a lista dos ips dos servidores
     # o rp vai mandar request para todos os servidores
     # e depois só os que tiverem o conteúdo é que respondem
-    def content_request(self, socket, data):
+    def content_request(self, socket, data, chosen_server):
         packet = Packet('content_request', None, None, data.error,data.content)
-        print("Sending ", packet.request, " to servers")
-        for elem in self.servers:
-            print("Sending ", packet.request, " to ", elem)
-            socket.sendto(pickle.dumps(packet), (elem,UDP_PORT))
+        #print("Sending ", packet.request, " to servers")
+        #for elem in self.servers:
+        print("Sending ", packet.request, " to ", chosen_server)
+        socket.sendto(pickle.dumps(packet), (chosen_server,UDP_PORT))
     
     # pedido de stream ao servidor escolhido pelo rp
     def handle_content_request(self, socket, data, rp_addr):
@@ -182,7 +191,25 @@ class Node:
         if self.node.startswith('C'):
             return True
         else: return False 
-                
+
+    def ping_server(self,server):
+        try:
+            # Run the ping command and capture the output
+            result = subprocess.run(['ping', '-c', '4', server], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+            
+            # Check if the ping was successful
+            if result.returncode == 0:
+                # Extract and return the average latency from the ping output
+                match = re.search(r'rtt min/avg/max/mdev = [\d.]+/([\d.]+)/[\d.]+/[\d.]+ ms', result.stdout)
+                if match:
+                    return float(match.group(1))
+        except subprocess.TimeoutExpired:
+            print(f"Timeout: Could not ping {server}")
+        except Exception as e:
+            print(f"Error pinging {server}: {e}")
+
+        return sys.maxsize  # Return a large value for servers that couldn't be pinged
+           
     def handle_request_stream(self,socket, data, client_address):
         # if found content, reply with path to accept?
         streaming_lock.acquire()
@@ -197,11 +224,20 @@ class Node:
                 # we get the servers from the bootstrap
                 servers_ip_list = self.servers.copy()
                 # Select server with content
-                #!------------------- FOR NOW USE THE FIRST ONE - for streaming tests purpose ------------------------------------------------------------------------------
-                chosen_server= servers_ip_list.pop()
+                #mandamos ping para todos os ips na lista de ips com conteudo e guardamos o 
+                #chosen_server= servers_ip_list.pop()
+                best_latency= sys.maxsize
+                for ip in servers_ip_list:
+                    latency = self.ping_server(ip)
+                    if latency < best_latency:
+                        best_latency = latency
+                        chosen_server = ip
+                
+                # send content request to server
+                self.content_request(socket, data, chosen_server)
+
                 #once we have the ip address
                 # confirm path with client
-                self.content_request(socket, data)
                 next_node = data.path.pop()
                 next_node_ips = self.neighbours[next_node]
                 data.reverse_path.append(self.node) 
@@ -266,8 +302,3 @@ if __name__ == "__main__":
 
 
     
-
-    # Um nodo envia pedido à procura do RP
-    # Manda para os nodos vizinhos
-    # Nodos vizinhos reenviam se não encontrarem RP
-    # else fazem traceback do caminho

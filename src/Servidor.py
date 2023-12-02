@@ -89,7 +89,7 @@ class Servidor:
 		# videoStram
 		self.clientInfo['videoStream'] = VideoStream(filename)
 		node = Node(bootstrapper_ip,self)
-		threading.Thread(target=node.run,args=()).start()
+		node.run()
 
 
 	

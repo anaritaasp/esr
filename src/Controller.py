@@ -23,6 +23,12 @@ class Controller:
         self.vizinhos = neighbours.get('Adjacentes') #dicionário com os vizinhos
         self.conteudo = neighbours.get('Conteúdo')
         self.latency={}
+        print ("Starting the Bootstrap")
+        # Criamos o socket
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind(('0.0.0.0',BOOTSTRAP_PORT))
+        self.server_socket.listen(5) # 5 clients in queue
+        print('Bootstrapper listening...')
        # self.address = default_ip_address
     
     #retorna os nomes de todos os nodos. ex:[N1,N2,N3]
@@ -182,14 +188,9 @@ class Controller:
                 time.sleep(10)
 
     def run(self):
-        print ("Starting the Bootstrap")
-        # Criamos o socket
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind(('0.0.0.0',BOOTSTRAP_PORT))
-        server_socket.listen(5) # 5 clients in queue
         # Espera pela conexão e pedidos dos servidores autorizados
         while(True):
-            client_sock, client_addr = server_socket.accept()
+            client_sock, client_addr = self.server_socket.accept()
             print(f"Connection accepted from {client_addr[0]}:{client_addr[1]}")
             client_handler = Thread(target=self.handle_request, args=(client_sock, client_addr))
             client_handler.start()
