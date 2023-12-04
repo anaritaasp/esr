@@ -283,16 +283,11 @@ class Node:
         # ----------------
         while True:
             data, client_address = socket_.recvfrom(1024)
-<<<<<<< HEAD
-            request_handler = Thread(target=self.handle_request,args=(socket_, data, client_address))
-            request_handler.start()
-=======
             print("Received packet from ", client_address)
             # Utilização do ThreadPoolExecutor para processar solicitações
             self.executor.submit(self.handle_request, socket_, data, client_address)
             #request_handler = Thread(target=self.handle_request,args=(socket_, data, client_address))
             #request_handler.start()
->>>>>>> 637c5c012866a3c9e3effb7a88319107167fcedd
 
 
 if __name__ == "__main__":
