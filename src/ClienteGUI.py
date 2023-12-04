@@ -100,7 +100,7 @@ class ClienteGUI:
 					
 					currFrameNbr = rtpPacket.seqNum()
 					print("Current Seq Num: " + str(currFrameNbr))
-										
+	
 					if currFrameNbr > self.frameNbr: # Discard the late packet
 						self.frameNbr = currFrameNbr
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
@@ -125,9 +125,14 @@ class ClienteGUI:
 	
 	def updateMovie(self, imageFile):
 		"""Update the image file as video frame in the GUI."""
-		photo = ImageTk.PhotoImage(Image.open(imageFile))
-		self.label.configure(image = photo, height=288) 
-		self.label.image = photo
+		try:
+			photo = ImageTk.PhotoImage(Image.open(imageFile))
+			self.label.configure(image = photo, height=288) 
+			self.label.image = photo
+		except OSError as e:
+			# Log the error
+			print(f"Error loading image: {e}")
+			# Optionally, provide a default image or skip processing
 		
 	
 	def openRtpPort(self):
@@ -136,7 +141,8 @@ class ClienteGUI:
 		self.rtpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		
 		# Set the timeout value of the socket to 0.5sec
-		self.rtpSocket.settimeout(4.5)
+		self.rtpSocket.settimeout(15)
+		print("Waiting for stream... 15 second timeout")
 		
 		try:
 			# Bind the socket to the address using the RTP port

@@ -121,13 +121,12 @@ class Controller:
         data = client_socket.recv(1024)
         print(f"Received data: {pickle.loads(data)}")
 
-        print(client_address)
         # Verifica se o request's ip é valido na overlay network
         node_name = self.get_the_node_name(client_address[0])
         if(node_name):
             # Responde com os nodos adjacentes
             data = self.get_the_vizinhanca_ips(node_name)
-            print(node_name)
+            print("Node identified: ",node_name," - ",client_address)
             servers = self.get_all_servers_with_content() if node_name == 'RP' else None
             # e responde também se tem conteúdo -> no caso de ser servidor , otherwise none
             serialized_data = {'error': False, 'data': data, 'node': node_name, 'content':self.get_my_content(node_name), 'servers':servers} 
@@ -139,53 +138,6 @@ class Controller:
         # caso ignore o request
         # fecha o client socket
         client_socket.close()
-
-
-    def measure_latency(self, server_ip):
-        try:
-            # Corre o ping command e captura o output
-            # corre o echo request do ICMP para enviar
-            # o 4 significa que o ping command vai mandar 4 packets para o destino especificado
-            # desta forma conseguimos obter resultados de rtt mais fiávies
-            result = subprocess.run(['ping', '-c', '4', server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-            # Verifica se o ping foi bem sucedido
-            if result.returncode == 0:
-                # Extrai e faz parse do round-trip time do output
-                lines = result.stdout.split('\n')
-                if len(lines) >= 3:
-                    rtt_line = lines[2].split('=')
-                    if len(rtt_line) >= 2:
-                        rtt_str = rtt_line[1].split()[0]
-                        rtt_ms = float(rtt_str)
-                        return rtt_ms
-        except Exception as e:
-            print(f"Error measuring latency: {e}")
-
-        # Retorna None se houve um erro ou se o ping was unsuccessful
-        return None
-
-    def periodic_latency_checks(self):
-        while True:
-            rp_ip = self.get_the_RP()
-            if rp_ip:
-                for server_name in self.check_if_its_server():
-                    server_ip = self.get_the_ips(server_name)[0]  # Assumindo um IP por servidor
-                    latency = self.measure_latency(server_ip)
-
-                    threshold = 50  # Example threshold in milliseconds
-
-                    if latency is not None and latency > threshold:
-                        print(f"Latency to {server_name} exceeds threshold. Re-establishing connection...")
-                        # Implement your re-establishment logic here
-
-                # Print the latency data dictionary
-                print("Latency data:", self.latency)
-
-                time.sleep(60)  # Example: Check every 60 seconds
-            else:
-                print("RP not found. Retrying...")
-                time.sleep(10)
 
     def run(self):
         # Espera pela conexão e pedidos dos servidores autorizados

@@ -3,7 +3,6 @@ import socket
 from globalvars import UDP_PORT, RTP_PORT
 from threading import Thread
 import pickle
-from Arvore import Arvore
 from Packet import Packet
 import sys
 import subprocess
@@ -37,6 +36,7 @@ class Node:
                 bootstrapper_ip = 'localhost'  # Return 'localhost' as a default value
 
         self.node , self.neighbours, self.own_content, self.servers =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
+        
         self.streaming = {}
         self.content = "movie.Mjpeg"
         self.server_stream = server_stream
@@ -104,12 +104,10 @@ class Node:
     def handle_stream_confirm(self, socket, data, client_addr):
         streaming_lock.acquire()
         try:
-            print("hs - data content ",data.content)
             stream_info = self.streaming.get(data.content, None)
             if stream_info is None:
                 self.streaming[data.content] = socketHandler()
             self.streaming[data.content].ips_list.append((client_addr[0],RTP_PORT))
-            print("hs - streaming ",self.streaming)
         finally:
             streaming_lock.release()        
          # o cliente já recebeu o pedido de stream e manda hop a hop até ao servidor a sua confirmação
@@ -152,7 +150,7 @@ class Node:
             if stream_info.socket is None:
                 self.streaming[data.content].socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 self.streaming[data.content].socket.bind(('0.0.0.0', RTP_PORT))
-                print('RTP socket open - ', rtp_socket.getsockname())
+                print('RTP socket open - ', self.streaming[data.content].socket.getsockname())
 
             rtp_socket = self.streaming[data.content].socket
             # temos que redirecionar os pacotes
@@ -254,7 +252,7 @@ class Node:
     def handle_request(self,socket, data, client_address):
         deserialized_data = pickle.loads(data)
         if self.control_ids(deserialized_data.id):
-            print("-----\npacket -> ",deserialized_data, "-----\n")
+            print("-----\nPacket received from ", client_address, " -> ",deserialized_data, "\n-----")
             if deserialized_data.request == 'request_stream':
                 self.handle_request_stream(socket, deserialized_data, client_address) # pedido cliente
             elif deserialized_data.request == 'response_stream':
@@ -283,7 +281,6 @@ class Node:
         # ----------------
         while True:
             data, client_address = socket_.recvfrom(1024)
-            print("Received packet from ", client_address)
             request_handler = Thread(target=self.handle_request,args=(socket_, data, client_address))
             request_handler.start()
 

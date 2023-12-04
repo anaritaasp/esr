@@ -33,6 +33,6 @@ class Neighbours:
             print("ERROR -  couldn't obtain info from bootstrap") 
             exit(-1)
         else:
-            print(deserialized_data['servers'])
+            if deserialized_data['node'] == 'RP': print(deserialized_data['servers'])
             ### the dictionary is inside the data part of the handle request
             return (deserialized_data['node'],deserialized_data['data'],deserialized_data['content'], deserialized_data['servers'])  

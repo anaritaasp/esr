@@ -1,4 +1,5 @@
 class VideoStream:
+
 	def __init__(self, filename):
 		self.filename = filename
 		try:
@@ -16,6 +17,8 @@ class VideoStream:
 			# Read the current frame
 			data = self.file.read(framelength)
 			self.frameNum += 1
+		else:
+			self.file.seek(0)
 		return data
 		
 	def frameNbr(self):

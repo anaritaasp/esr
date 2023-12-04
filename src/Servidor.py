@@ -21,6 +21,8 @@ class Servidor:
 				break
 				
 			data = self.clientInfo['videoStream'].nextFrame()
+			
+
 			if data:
 				frameNumber = self.clientInfo['videoStream'].frameNbr()
 				try:
