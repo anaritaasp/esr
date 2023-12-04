@@ -154,20 +154,20 @@ class Node:
                 self.streaming[data.content].socket.bind(('0.0.0.0', RTP_PORT))
                 print('RTP socket open - ', self.streaming[data.content].socket.getsockname())
 
-            rtp_socket = self.streaming[data.content].socket
-            # temos que redirecionar os pacotes
-            while True:
-                # como len é > 0 ainda nao tamos no cliente
-                rtp_packet = rtp_socket.recv(20480)
-                #print(rtp_packet)
-                if rtp_packet:
-                    streaming_lock.acquire()
-                    try:
-                        #print(self.streaming[data.content])
-                        for ip in self.streaming[data.content].ips_list:
-                            self.streaming[data.content].socket.sendto(rtp_packet, ip)
-                    finally:
-                        streaming_lock.release()
+                rtp_socket = self.streaming[data.content].socket
+                # temos que redirecionar os pacotes
+                while True:
+                    # como len é > 0 ainda nao tamos no cliente
+                    rtp_packet = rtp_socket.recv(20480)
+                    #print(rtp_packet)
+                    if rtp_packet:
+                        streaming_lock.acquire()
+                        try:
+                            #print(self.streaming[data.content])
+                            for ip in self.streaming[data.content].ips_list:
+                                self.streaming[data.content].socket.sendto(rtp_packet, ip)
+                        finally:
+                            streaming_lock.release()
         
     # o rp tem de ter a lista dos ips dos servidores
     # o rp vai mandar request para todos os servidores
