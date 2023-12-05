@@ -180,8 +180,7 @@ class Node:
         socket.sendto(pickle.dumps(packet), (chosen_server,UDP_PORT))
     
     # pedido de stream ao servidor escolhido pelo rp
-    def handle_content_request(self, socket, data, rp_addr):
-        from Servidor import Servidor
+    def handle_content_request(self, data, rp_addr):
         if data.content in self.own_content:
             # start streaming to rp
             print("Starting stream to ", rp_addr[0])
@@ -234,8 +233,11 @@ class Node:
                         chosen_server = ip
                 
                 # send content request to server
-                self.content_request(socket, data, chosen_server)
-
+                streaming_lock.acquire()
+                if data.content not in self.streaming.keys():
+                    streaming_lock.release()
+                    self.content_request(socket, data, chosen_server)
+                else: streaming_lock.release()
                 #once we have the ip address
                 # confirm path with client
                 next_node = data.path.pop()
@@ -264,7 +266,7 @@ class Node:
             elif deserialized_data.request == 'stream':
                 self.handle_stream(socket,deserialized_data) # 
             elif deserialized_data.request == 'content_request':
-                self.handle_content_request(socket, deserialized_data, client_address)
+                self.handle_content_request(deserialized_data, client_address)
             else:
                 None # TODO 
         sys.stdout.flush()   
@@ -300,7 +302,4 @@ if __name__ == "__main__":
     
     if bootstrapper_ip:
         (Node(bootstrapper_ip, None)).run()
-    
-
-
     
