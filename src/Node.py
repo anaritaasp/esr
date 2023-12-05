@@ -15,8 +15,7 @@ import re
 import netifaces
 from concurrent.futures import ThreadPoolExecutor
 
-# Define a lock for synchronization
-streaming_lock = threading.Lock()
+
 
 
 #classe onde tratamos das funções auxiliares aos pedidos do cliente e entrega de conteúdo
@@ -45,7 +44,9 @@ class Node:
         self.tk = None
         self.packet_ids = LH()
         self.executor = ThreadPoolExecutor(max_workers=10) # pool de threads para melhorar o controlo de fluxo
-    
+        # Define a lock for synchronization
+        self.streaming_lock = threading.Lock()
+
     def add_client(self, client):
         self.client = client
 
@@ -104,14 +105,14 @@ class Node:
                 
                 
     def handle_stream_confirm(self, socket, data, client_addr):
-        streaming_lock.acquire()
+        self.streaming_lock.acquire()
         try:
             stream_info = self.streaming.get(data.content, None)
             if stream_info is None:
                 self.streaming[data.content] = socketHandler()
             self.streaming[data.content].ips_list.append((client_addr[0],RTP_PORT))
         finally:
-            streaming_lock.release()        
+            self.streaming_lock.release()        
          # o cliente já recebeu o pedido de stream e manda hop a hop até ao servidor a sua confirmação
         if len(data.reverse_path) > 0: # o caminho do cliente até ao nodo que tem o conteúdo para streamar
             next_node = data.reverse_path.pop()
@@ -161,13 +162,30 @@ class Node:
                     rtp_packet = rtp_socket.recv(20480)
                     #print(rtp_packet)
                     if rtp_packet:
-                        streaming_lock.acquire()
+                        self.streaming_lock.acquire()
                         try:
                             #print(self.streaming[data.content])
                             for ip in self.streaming[data.content].ips_list:
                                 self.streaming[data.content].socket.sendto(rtp_packet, ip)
                         finally:
-                            streaming_lock.release()
+                            self.streaming_lock.release()
+                            
+    def handle_close_stream(self, socket, data, addr):
+        self.streaming_lock.acquire()
+        try:
+            curr_content_streaming = self.streaming.get(data.content,None)
+            if curr_content_streaming and (addr, RTP_PORT) in curr_content_streaming.ips_list:
+                curr_content_streaming.ips_list.remove((addr, RTP_PORT))
+                if len(curr_content_streaming.ips_list) == 0:
+                    self.send_to_neighbours(socket, data, addr, data.content)
+                    try:
+                        curr_content_streaming.socket.shutdown(socket.SHUT_RDWR)
+                        curr_content_streaming.socket.close()
+                    except socket.error as e:
+                        print(f"Error while closing the socket: {e}")  
+        finally:
+            self.streaming_lock.release()
+            
         
     # o rp tem de ter a lista dos ips dos servidores
     # o rp vai mandar request para todos os servidores
@@ -211,14 +229,14 @@ class Node:
            
     def handle_request_stream(self,socket, data, client_address):
         # if found content, reply with path to accept?
-        streaming_lock.acquire()
+        self.streaming_lock.acquire()
         if data.content in self.streaming.keys():
-            streaming_lock.release()
+            self.streaming_lock.release()
             # we've found the content
             # must reply to the client with the 
             self.handle_response_stream(socket, data, client_address)
         else: 
-            streaming_lock.release()
+            self.streaming_lock.release()
             if self.node == 'RP':
                 # we get the servers from the bootstrap
                 servers_ip_list = self.servers.copy()
@@ -233,11 +251,11 @@ class Node:
                         chosen_server = ip
                 
                 # send content request to server
-                streaming_lock.acquire()
+                self.streaming_lock.acquire()
                 if data.content not in self.streaming.keys():
-                    streaming_lock.release()
+                    self.streaming_lock.release()
                     self.content_request(socket, data, chosen_server)
-                else: streaming_lock.release()
+                else: self.streaming_lock.release()
                 #once we have the ip address
                 # confirm path with client
                 next_node = data.path.pop()
@@ -267,6 +285,8 @@ class Node:
                 self.handle_stream(socket,deserialized_data) # 
             elif deserialized_data.request == 'content_request':
                 self.handle_content_request(deserialized_data, client_address)
+            elif deserialized_data.request == 'close_stream':
+                self.handle_close_stream(socket, deserialized_data)
             else:
                 None # TODO 
         sys.stdout.flush()   
