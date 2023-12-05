@@ -1,6 +1,5 @@
 import sys, socket
 
-from random import randint
 import sys, traceback, threading, socket
 
 from VideoStream import VideoStream
@@ -70,6 +69,13 @@ class Servidor:
 		self.clientInfo['event'] = threading.Event()
 		self.clientInfo['worker']= threading.Thread(target=self.sendRtp)
 		self.clientInfo['worker'].start()
+  
+	def stop_stream(self):
+		self.clientInfo['event'].set()
+		self.clientInfo['worker'].join()
+		print("Stopped streaming...")
+		self.clientInfo['rtpSocket'].shutdown(socket.SHUT_RDWR)
+		self.clientInfo['rtpSocket'].close()
 	
 	def main(self):
 

@@ -2,8 +2,6 @@ import json
 from threading import Thread
 import socket
 import pickle
-import subprocess
-import time
 from globalvars import BOOTSTRAP_PORT
 
 SERVER_HOST = '0.0.0.0'  # Listen on all available network interfaces

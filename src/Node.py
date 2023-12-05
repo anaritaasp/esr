@@ -1,7 +1,7 @@
 from Neighbours import Neighbours
 import socket
 from globalvars import UDP_PORT, RTP_PORT
-from threading import Thread
+import threading
 import pickle
 from Packet import Packet
 import sys
@@ -36,22 +36,15 @@ class Node:
                 bootstrapper_ip = 'localhost'  # Return 'localhost' as a default value
 
         self.node , self.neighbours, self.own_content, self.servers =  Neighbours(bootstrapper_ip).run()  # nodos vizinhos do nosso nodo
-        
+        self.instream = None
         self.streaming = {}
         self.content = "movie.Mjpeg"
         self.server_stream = server_stream
-        self.client = None
-        self.tk = None
         self.packet_ids = LH()
         self.executor = ThreadPoolExecutor(max_workers=10) # pool de threads para melhorar o controlo de fluxo
         # Define a lock for synchronization
         self.streaming_lock = threading.Lock()
 
-    def add_client(self, client):
-        self.client = client
-
-    def add_Tk(self, root):
-        self.tk = root
 
     # verificamos se existe um pacote com o mesmo id, se não existe ele adiciona à lista de ids e continua o processo de pedir
     def control_ids(self, id):
@@ -110,7 +103,8 @@ class Node:
             stream_info = self.streaming.get(data.content, None)
             if stream_info is None:
                 self.streaming[data.content] = socketHandler()
-            self.streaming[data.content].ips_list.append((client_addr[0],RTP_PORT))
+            if client_addr[0] not in [t[0] for t in self.streaming[data.content].ips_list]:
+                self.streaming[data.content].ips_list.append((client_addr[0],RTP_PORT))
         finally:
             self.streaming_lock.release()        
          # o cliente já recebeu o pedido de stream e manda hop a hop até ao servidor a sua confirmação
@@ -147,7 +141,6 @@ class Node:
 
     def redirect_stream(self, data):
         # abrimos uma porta para iniciar o stream ---
-        # ! para já só uma porta
         stream_info = self.streaming.get(data.content, None)
         if stream_info:    
             if stream_info.socket is None:
@@ -156,34 +149,57 @@ class Node:
                 print('RTP socket open - ', self.streaming[data.content].socket.getsockname())
 
                 rtp_socket = self.streaming[data.content].socket
+                
+                _, addr = rtp_socket.recvfrom(20480)
+                self.streaming_lock.acquire()
+                if self.instream is None:
+                    self.instream = addr[0]
+                self.streaming_lock.release()
                 # temos que redirecionar os pacotes
                 while True:
+                    try:
                     # como len é > 0 ainda nao tamos no cliente
-                    rtp_packet = rtp_socket.recv(20480)
-                    #print(rtp_packet)
-                    if rtp_packet:
+                        rtp_packet, addr = rtp_socket.recvfrom(20480)
+                        #print(rtp_packet)
                         self.streaming_lock.acquire()
-                        try:
+                        if rtp_packet and self.instream == addr[0]:
                             #print(self.streaming[data.content])
                             for ip in self.streaming[data.content].ips_list:
                                 self.streaming[data.content].socket.sendto(rtp_packet, ip)
-                        finally:
-                            self.streaming_lock.release()
-                            
+                    finally:
+                        self.streaming_lock.release()
+
+    
     def handle_close_stream(self, socket, data, addr):
-        self.streaming_lock.acquire()
-        try:
+        #print(self.server_stream)
+        if self.server_stream is not None:
+            self.server_stream.stop_stream()
+        else:      
+            self.streaming_lock.acquire()
+            # in case node is streaming, close corresponding content's stream
             curr_content_streaming = self.streaming.get(data.content,None)
-            if curr_content_streaming and (addr, RTP_PORT) in curr_content_streaming.ips_list:
-                curr_content_streaming.ips_list.remove((addr, RTP_PORT))
+            
+            if curr_content_streaming and (addr[0], RTP_PORT) in curr_content_streaming.ips_list:
+                #print(curr_content_streaming.ips_list)
+                index = [t[0] for t in curr_content_streaming.ips_list].index(addr[0])
+                #print(index)
+                curr_content_streaming.ips_list.pop(index)
+                #print(curr_content_streaming.ips_list)\
+                # if no clients to stream to, close stream and warn other nodes
                 if len(curr_content_streaming.ips_list) == 0:
                     self.send_to_neighbours(socket, data, addr, data.content)
+                    self.instream = None
+                    if self.node == 'RP':
+                        # if RP, send to server a request to stop the stream
+                        _, sv_addr = curr_content_streaming.socket.recvfrom(20480)
+                        packet = Packet('close_stream', [], [], data.error, data.content)
+                        print("Sending ", packet.request, " to ", sv_addr)
+                        socket.sendto(pickle.dumps(packet), (sv_addr[0],UDP_PORT))
                     try:
                         curr_content_streaming.socket.shutdown(socket.SHUT_RDWR)
                         curr_content_streaming.socket.close()
                     except socket.error as e:
                         print(f"Error while closing the socket: {e}")  
-        finally:
             self.streaming_lock.release()
             
         
@@ -252,7 +268,7 @@ class Node:
                 
                 # send content request to server
                 self.streaming_lock.acquire()
-                if data.content not in self.streaming.keys():
+                if data.content not in self.streaming.keys() and self.instream is None:
                     self.streaming_lock.release()
                     self.content_request(socket, data, chosen_server)
                 else: self.streaming_lock.release()
@@ -286,7 +302,7 @@ class Node:
             elif deserialized_data.request == 'content_request':
                 self.handle_content_request(deserialized_data, client_address)
             elif deserialized_data.request == 'close_stream':
-                self.handle_close_stream(socket, deserialized_data)
+                self.handle_close_stream(socket, deserialized_data, client_address)
             else:
                 None # TODO 
         sys.stdout.flush()   

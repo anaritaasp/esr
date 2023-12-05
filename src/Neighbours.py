@@ -1,13 +1,6 @@
 from socket import *
-import threading
-import sys
-import json
-from threading import Thread
 import socket
 import pickle
-import subprocess
-import time
-from Controller import Controller
 from globalvars import BOOTSTRAP_PORT
 
 #classe usada para um dado nodo pedir ao bootstrapper o dicionário dos seus vizinhos

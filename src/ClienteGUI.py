@@ -1,7 +1,7 @@
 from tkinter import *
 import tkinter.messagebox
 from PIL import Image, ImageTk
-import socket, threading, sys, traceback, os
+import socket, threading, os
 from globalvars import RTP_PORT
 from Node import Node
 from Packet import Packet
@@ -28,10 +28,11 @@ class ClienteGUI:
 		self.requestSent = -1
 		self.teardownAcked = 0
 		
-		request_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		self.request_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		packet = Packet('request_stream',[],[],None,'movie.Mjpeg')
-		self.node.start_dissemination(request_socket,packet,'movie.Mjpeg')
+		self.node.start_dissemination(self.request_socket,packet,'movie.Mjpeg')
 		#request_socket.shutdown(socket.SHUT_RDWR)
+		#request_socket.close()
 
 		
 
@@ -77,24 +78,33 @@ class ClienteGUI:
 		"""Teardown button handler."""
 		self.master.destroy() # Close the gui window
 		# Close stream
-
+		try:
+			packet = Packet('close_stream',[],[],None,'movie.Mjpeg')
+			self.node.start_dissemination(self.request_socket,packet,'movie.Mjpeg')
+		finally:	
+			self.request_socket.shutdown(socket.SHUT_RDWR)
+			self.request_socket.close()
 		os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT) # Delete the cache image from video
 
 	def pauseMovie(self):
 		"""Pause button handler."""
-		print("Not implemented...")
+		self.playEvent.set()
 	
 	def playMovie(self):
 		"""Play button handler."""
+		self.playEvent = threading.Event()
 		# Create a new thread to listen for RTP packets
 		threading.Thread(target=self.listenRtp).start()
-		self.playEvent = threading.Event()
 		self.playEvent.clear()
 	
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
 		while True:
 			try:
+				# Stop listening upon requesting PAUSE or TEARDOWN
+				if self.playEvent.isSet(): 
+					break
+ 
 				data = self.rtpSocket.recv(20480)
 				if data:
 					rtpPacket = RtpPacket()
